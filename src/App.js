@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 function App() {
   const guestList = [];
+  const [loading, setLoading] = useState(true);
   const [hasGuestList, setHasGuestList] = useState(guestList);
   const [hasName, setHasName] = useState('');
   const [hasSurname, setHasSurname] = useState('');
@@ -15,14 +16,21 @@ function App() {
   const [placeHolder, setPlaceHolder] = useState('');
   const [placeHolderSurname, setPlaceHolderSurname] = useState('');
   const [deadline, setDeadline] = useState(null);
-  const baseUrl = 'http://localhost:5000';
-  const [hasId, setHasId] = useState(1);
+  const baseUrl = 'https://rest-guest-list-api.herokuapp.com';
+
   const hasAttending = false;
+
+
   useEffect(() => {
     async function fetchGuestAPI() {
       const response = await fetch(`${baseUrl}/`);
       const allGuests = await response.json();
-      setHasGuestAPI(allGuests);
+      /* setHasGuestAPI(allGuests);
+
+      setShowAll(allGuests);*/
+      setHasGuestList(allGuests);
+      setLoading(false);
+      console.log(allGuests);
     }
     fetchGuestAPI();
   }, []);
@@ -42,13 +50,13 @@ function App() {
     const createdGuest = await response.json();
   }
 
-  async function updateGuestAPI(attendingGu, id) {
+  async function updateGuestAPI(attendingGu, firstName, lastName, id) {
     const response = await fetch(`${baseUrl}/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ attending: attendingGu }),
+      body: JSON.stringify({ attending: attendingGu, firstName: firstName, lastName: lastName }),
     });
     const updatedGuest = await response.json();
   }
@@ -78,10 +86,6 @@ function App() {
     showGuests();
   }, [selectValue, hasGuestList]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (hasGuestAPI == null) {
-    return <>loading...</>;
-  }
 
   return (
     <div className="App">
@@ -101,23 +105,32 @@ function App() {
         </label>
         <button
           onClick={() => {
-            if (hasGuestList.name === '' && hasGuestList.surName === '') {
-              setHasGuestList.name = hasName;
-              setHasGuestList.surName = hasSurname;
-              setHasGuestList.id = hasId;
+            if (hasGuestList.firstName === '' && hasGuestList.lastName === '') {
+              setHasGuestList.firstName = hasName;
+              setHasGuestList.lastName = hasSurname;
+              setHasGuestList.id = 1;
               setHasGuestList.attending = hasAttending;
               addGuestAPI();
             } else {
               const newGuestList = [...hasGuestList];
+              const idArr = newGuestList.map((guest)=>{
+                return guest.id;
+              })
+              const idNew = JSON.stringify(Math.max(...idArr) +1);
+              console.log(idNew);
               newGuestList.push({
-                name: hasName,
-                surName: hasSurname,
+                id: idNew,
+                firstName: hasName,
+                lastName: hasSurname,
                 attending: hasAttending,
-                id: hasId,
+
               });
               setHasGuestList(newGuestList);
               addGuestAPI();
-              setHasId(hasId + 1);
+
+
+              console.log(newGuestList);
+
             }
           }}
         >
@@ -137,11 +150,13 @@ function App() {
       </select>
       <div className="orderList">
         <h2>Guest List</h2>
+
         <ol className="listTable">
+          {loading == true? "loading...": ""}
           {showAll.map((guest) => {
             return (
               <li
-                key={guest.name}
+                key={guest.id}
                 style={
                   guest.deadline != null &&
                   guest.attending === false &&
@@ -172,17 +187,21 @@ function App() {
                       onClick={() => {
                         const newGuest = hasGuestList.map((guest2) => {
                           if (guest2.id === guest.id) {
-                            guest2.name = placeHolder;
-                            guest2.surName = placeHolderSurname;
+                            guest2.firstName = placeHolder;
+                            guest2.lastName = placeHolderSurname;
+
                             if (guest2.attending === false) {
                               guest2.deadline = deadline;
+
                             }
+                            updateGuestAPI(guest2.attending, guest2.firstName, guest2.lastName, guest2.id);
                           }
                           return guest2;
                         });
                         setDeadline(null);
                         setHasGuestList(newGuest);
                         setEditing(null);
+
                       }}
                     >
                       save
@@ -190,14 +209,14 @@ function App() {
                   </>
                 ) : (
                   <>
-                    {guest.name} {guest.surName}{' '}
+                    {guest.firstName} {guest.lastName}{' '}
                     {guest.attending === true ? 'attending' : 'unknown'}{' '}
                     {guest.attending === false ? guest.deadline : null}{' '}
                     <button
                       onClick={() => {
                         setEditing(guest.id);
-                        setPlaceHolder(guest.name);
-                        setPlaceHolderSurname(guest.surName);
+                        setPlaceHolder(guest.firstName);
+                        setPlaceHolderSurname(guest.lastName);
                       }}
                     >
                       edit
@@ -206,15 +225,15 @@ function App() {
                       onClick={() => {
                         const updtGstLst = hasGuestList.map((guest2) => {
                           if (
-                            guest2.name == guest.name &&
-                            guest2.surName == guest.surName
+                            guest2.firstName == guest.firstName &&
+                            guest2.lastName == guest.lastName
                           ) {
                             if (guest2.attending === hasAttending) {
                               guest2.attending = !hasAttending;
-                              updateGuestAPI(!hasAttending, guest2.id);
+                              updateGuestAPI(!hasAttending, guest2.firstName, guest2.lastName, guest2.id);
                             } else {
                               guest2.attending = hasAttending;
-                              updateGuestAPI(hasAttending, guest2.id);
+                              updateGuestAPI(!hasAttending, guest2.firstName, guest2.lastName, guest2.id);
                             }
                           }
                           return guest2;
@@ -235,8 +254,8 @@ function App() {
                         });
                         const updatedGuestList = hasGuestList.filter(
                           (guest2) =>
-                            guest2.name !== guest.name ||
-                            guest2.surName !== guest.surName,
+                            guest2.firstName !== guest.firstName ||
+                            guest2.lastName !== guest.lastName,
                         );
                         setHasGuestList(updatedGuestList);
                       }}
